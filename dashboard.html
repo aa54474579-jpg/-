@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - تذكير المواعيد الطبية</title>
+    <link rel="stylesheet" href="css/appointments.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="main-nav">
+       <nav class="main-nav">
+        <div class="nav-logo">
+            <img src="assets/logo.png" alt="شعار التطبيق">
+            <span>تذكير المواعيد الطبية</span>
+        </div>
+        <div class="nav-user">
+            <div class="user-avatar-dropdown">
+                <img src="assets/user.png" alt="صورة المستخدم" class="user-avatar">
+                <div class="user-dropdown">
+                    <div class="user-name"><span id="userNameValue">...</span></div>
+                    <a href="settings.html" class="dropdown-link"><i class="fas fa-cog"></i> الإعدادات</a>
+                    <button id="logoutBtn" class="dropdown-link btn-icon"><i class="fas fa-sign-out-alt"></i> تسجيل خروج</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-menu">
+            <a href="appointments.html" class="nav-link">
+                <i class="fas fa-calendar-check"></i>
+                المواعيد
+            </a>
+            <a href="tests.html" class="nav-link">
+                <i class="fas fa-vial"></i>
+                التحاليل
+            </a>
+            <a href="export.html" class="nav-link">
+                <i class="fas fa-file-export"></i>
+                التصدير
+            </a>
+            <a href="notes.html" class="nav-link">
+                <i class="fas fa-sticky-note"></i>
+                الملاحظات
+            </a>
+            <a href="settings.html" class="nav-link">
+                <i class="fas fa-cog"></i>
+                الإعدادات
+            </a>
+            <a href="dashboard.html" class="nav-link active">
+                <i class="fas fa-chart-line"></i>
+                لوحة التحكم
+            </a>
+        </div>
+        
+    </nav>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-grid">
+            <!-- إحصائيات عامة -->
+            <div class="stats-card">
+                <h3>إحصائيات عامة</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <i class="fas fa-calendar-check"></i>
+                        <span id="appointmentsCount">0</span>
+                        <span>المواعيد</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-vial"></i>
+                        <span id="testsCount">0</span>
+                        <span>التحاليل</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-sticky-note"></i>
+                        <span id="notesCount">0</span>
+                        <span>الملاحظات</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- المواعيد القادمة -->
+            <div class="upcoming-card">
+                <h3>المواعيد القادمة</h3>
+                <div id="upcomingAppointments"></div>
+            </div>
+
+            <!-- رسم بياني للتحاليل -->
+            <div class="tests-chart-card">
+                <h3>متابعة التحاليل</h3>
+                <canvas id="testsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

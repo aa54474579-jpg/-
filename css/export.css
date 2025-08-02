@@ -1,0 +1,62 @@
+.form-section {
+  margin-bottom: 2rem;
+}
+
+.checkbox-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.date-range {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.date-input label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-weight: bold;
+}
+
+.date-input input[type="date"] {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.preview-section {
+  margin: 2rem 0;
+}
+
+.preview-content {
+  background-color: #f9f9f9;
+  border: 1px dashed #ccc;
+  padding: 1rem;
+  min-height: 150px;
+  border-radius: 6px;
+}
+
+.export-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-action {
+  background-color: var(--primary-color);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.3s;
+  font-size: 1rem;
+}
+
+.btn-action:hover {
+  background-color: #21867a;
+}

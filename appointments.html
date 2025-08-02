@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المواعيد الطبية</title>
+    <link rel="stylesheet" href="css/appointments.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="main-nav">
+        <div class="nav-logo">
+            <img src="assets/logo.png" alt="شعار التطبيق">
+            <span>تذكير المواعيد الطبية</span>
+        </div>
+        <div class="nav-user">
+            <div class="user-avatar-dropdown">
+                <img src="assets/user.png" alt="صورة المستخدم" class="user-avatar">
+                <div class="user-dropdown">
+                    <div class="user-name"><span id="userNameValue">...</span></div>
+                    <a href="settings.html" class="dropdown-link"><i class="fas fa-cog"></i> الإعدادات</a>
+                    <button id="logoutBtn" class="dropdown-link btn-icon"><i class="fas fa-sign-out-alt"></i> تسجيل خروج</button>
+                </div>
+            </div>
+        </div>
+        <div class="nav-menu">
+            <a href="appointments.html" class="nav-link active">
+                <i class="fas fa-calendar-check"></i>
+                المواعيد
+            </a>
+            <a href="tests.html" class="nav-link">
+                <i class="fas fa-vial"></i>
+                التحاليل
+            </a>
+            <a href="export.html" class="nav-link">
+                <i class="fas fa-file-export"></i>
+                التصدير
+            </a>
+           <a href="notes.html" class="nav-link">
+                <i class="fas fa-sticky-note"></i>
+                الملاحظات
+            </a>
+          
+        </div>
+        
+    </nav>
+
+    <div class="container">
+        <div class="appointments-grid">
+            <!-- قسم إضافة موعد -->
+            <div class="add-appointment card">
+                <div class="card-header">
+                    <h2><i class="fas fa-plus-circle"></i> إضافة موعد جديد</h2>
+                </div>
+                <form id="appointmentForm">
+                    <div class="form-group">
+                        <div class="input-icon">
+                            <i class="fas fa-heading"></i>
+                            <input type="text" id="title" placeholder="عنوان الموعد" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <div class="input-icon">
+                                <i class="fas fa-calendar"></i>
+                                <input type="date" id="date" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="input-icon">
+                                <i class="fas fa-clock"></i>
+                                <input type="time" id="time" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="input-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <input type="text" id="location" placeholder="المكان" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="input-icon textarea-icon">
+                            <i class="fas fa-sticky-note"></i>
+                            <textarea id="notes" placeholder="ملاحظات إضافية..."></textarea>
+                        </div>
+                    </div>
+                    <div class="form-group switch-group">
+                        <label class="switch">
+                            <input type="checkbox" id="smsReminder">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="switch-label">تفعيل التذكير عبر الرسائل</span>
+                    </div>
+                    <button type="submit" class="btn-submit">
+                        <i class="fas fa-save"></i>
+                        حفظ الموعد
+                    </button>
+                </form>
+            </div>
+
+            <!-- قسم عرض المواعيد -->
+            <div class="appointments-list">
+                <div class="appointments-filters">
+                    <h2><i class="fas fa-calendar-alt"></i> المواعيد القادمة</h2>
+                    <div class="filter-buttons">
+                        <button class="btn-filter active" data-filter="all">الكل</button>
+                        <button class="btn-filter" data-filter="today">اليوم</button>
+                        <button class="btn-filter" data-filter="week">هذا الأسبوع</button>
+                        <button class="btn-filter" data-filter="month">هذا الشهر</button>
+                    </div>
+                </div>
+                <div id="appointmentsList" class="appointments-cards">
+                    <!-- سيتم ملؤها عبر JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/database.js"></script>
+</body>
+</html>
