@@ -1,3 +1,4 @@
+// js/dashboard.js
 import { auth, db, initialized } from '../lib/firebase.js';
 import { 
     collection, 
@@ -16,6 +17,7 @@ class DashboardManager {
             tests: 0,
             notes: 0
         };
+        this.testsChart = null; // للاحتفاظ بالرسم البياني وتحديثه
         this.init();
     }
 
@@ -30,27 +32,15 @@ class DashboardManager {
     async loadStats() {
         const userId = auth.currentUser.uid;
         try {
-            // تحميل إحصائيات المواعيد
-            const appointmentsQuery = query(
-                collection(db, "appointments"),
-                where("userId", "==", userId)
-            );
+            const appointmentsQuery = query(collection(db, "appointments"), where("userId", "==", userId));
             const appointmentsCount = (await getDocs(appointmentsQuery)).size;
             document.getElementById('appointmentsCount').textContent = appointmentsCount;
 
-            // تحميل إحصائيات التحاليل
-            const testsQuery = query(
-                collection(db, "tests"),
-                where("userId", "==", userId)
-            );
+            const testsQuery = query(collection(db, "tests"), where("userId", "==", userId));
             const testsCount = (await getDocs(testsQuery)).size;
             document.getElementById('testsCount').textContent = testsCount;
 
-            // تحميل إحصائيات الملاحظات
-            const notesQuery = query(
-                collection(db, "notes"),
-                where("userId", "==", userId)
-            );
+            const notesQuery = query(collection(db, "notes"), where("userId", "==", userId));
             const notesCount = (await getDocs(notesQuery)).size;
             document.getElementById('notesCount').textContent = notesCount;
         } catch (error) {
@@ -75,7 +65,6 @@ class DashboardManager {
                 id: doc.id,
                 ...doc.data()
             }));
-
             this.renderUpcomingAppointments(appointments);
         } catch (error) {
             console.error("Error loading upcoming appointments:", error);
@@ -84,6 +73,7 @@ class DashboardManager {
 
     renderUpcomingAppointments(appointments) {
         const container = document.getElementById('upcomingAppointments');
+        if (!container) return;
         if (appointments.length === 0) {
             container.innerHTML = '<p class="no-data">لا توجد مواعيد قادمة</p>';
             return;
@@ -104,65 +94,6 @@ class DashboardManager {
         `).join('');
     }
 
-    async loadTestsChart() {
-        // تنفيذ في الإصدار القادم
-        console.log("Tests chart loading...");
-    }
-
-    setupRealtimeUpdates() {
-        const userId = auth.currentUser.uid;
-        
-        // مراقبة التغييرات في المواعيد
-        onSnapshot(
-            query(collection(db, "appointments"), where("userId", "==", userId)),
-            (snapshot) => {
-                this.updateAppointmentsCount(snapshot.size);
-                this.loadUpcomingAppointments();
-            }
-        );
-
-        // مراقبة التغييرات في التحاليل
-        onSnapshot(
-            query(collection(db, "tests"), where("userId", "==", userId)),
-            (snapshot) => {
-                this.updateTestsCount(snapshot.size);
-                this.loadTestsChart();
-            }
-        );
-
-        // مراقبة التغييرات في الملاحظات
-        onSnapshot(
-            query(collection(db, "notes"), where("userId", "==", userId)),
-            (snapshot) => {
-                this.updateNotesCount(snapshot.size);
-            }
-        );
-    }
-
-    updateAppointmentsCount(count) {
-        document.getElementById('appointmentsCount').textContent = count;
-    }
-
-    updateTestsCount(count) {
-        document.getElementById('testsCount').textContent = count;
-    }
-
-    updateNotesCount(count) {
-        document.getElementById('notesCount').textContent = count;
-    }
-}
-// js/dashboard.js
-// ... (الكود الحالي) ...
-
-class DashboardManager {
-    constructor() {
-        // ...
-        this.testsChart = null; // للاحتفاظ بالرسم البياني وتحديثه
-        this.init();
-    }
-    
-    // ...
-    
     async loadTestsChart() {
         const userId = auth.currentUser.uid;
         try {
@@ -187,11 +118,13 @@ class DashboardManager {
     }
 
     renderTestsChart(data) {
-        const ctx = document.getElementById('testsChart').getContext('2d');
+        const canvas = document.getElementById('testsChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
         if (!data || data.length === 0) {
             ctx.font = "16px Arial";
             ctx.textAlign = "center";
-            ctx.fillText("لا توجد بيانات كافية لعرض الرسم البياني", 150, 100);
+            ctx.fillText("لا توجد بيانات كافية لعرض الرسم البياني", canvas.width / 2, 50);
             return;
         }
 
@@ -199,11 +132,11 @@ class DashboardManager {
         const averages = data.map(d => d.average);
         
         if (this.testsChart) {
-            this.testsChart.destroy(); // تدمير الرسم البياني القديم قبل رسم الجديد
+            this.testsChart.destroy();
         }
 
         this.testsChart = new Chart(ctx, {
-            type: 'line', // نوع الرسم البياني
+            type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
@@ -217,6 +150,7 @@ class DashboardManager {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                     y: {
                         beginAtZero: false
@@ -226,9 +160,40 @@ class DashboardManager {
         });
     }
 
-    // ... (باقي الكود)
+    setupRealtimeUpdates() {
+        const userId = auth.currentUser.uid;
+        
+        onSnapshot(query(collection(db, "appointments"), where("userId", "==", userId)), (snapshot) => {
+            this.updateAppointmentsCount(snapshot.size);
+            this.loadUpcomingAppointments();
+        });
+
+        onSnapshot(query(collection(db, "tests"), where("userId", "==", userId)), (snapshot) => {
+            this.updateTestsCount(snapshot.size);
+            this.loadTestsChart();
+        });
+
+        onSnapshot(query(collection(db, "notes"), where("userId", "==", userId)), (snapshot) => {
+            this.updateNotesCount(snapshot.size);
+        });
+    }
+
+    updateAppointmentsCount(count) {
+        const element = document.getElementById('appointmentsCount');
+        if (element) element.textContent = count;
+    }
+
+    updateTestsCount(count) {
+        const element = document.getElementById('testsCount');
+        if (element) element.textContent = count;
+    }
+
+    updateNotesCount(count) {
+        const element = document.getElementById('notesCount');
+        if (element) element.textContent = count;
+    }
 }
-// تهيئة لوحة التحكم
+
 document.addEventListener('DOMContentLoaded', () => {
     new DashboardManager();
 });

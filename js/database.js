@@ -1,3 +1,5 @@
+// js/database.js
+
 import { app, auth, db, initialized } from '../lib/firebase.js';
 import { 
     collection, 
@@ -9,303 +11,44 @@ import {
     updateDoc,
     deleteDoc,
     onSnapshot,
-    orderBy,
-    enableNetwork,
-    disableNetwork
+    orderBy
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// الانتظار حتى تكتمل عملية تهيئة Firebase
+// =================================================================
+// الدوال المساعدة العامة
+// =================================================================
+function showLoader(show) {
+    const loader = document.querySelector('.loader');
+    if (loader) {
+        loader.style.display = show ? 'block' : 'none';
+    }
+}
+
+function showMessage(message, type, container = document) {
+    const messageArea = container.querySelector('.message-area');
+    if (messageArea) {
+        messageArea.textContent = message;
+        messageArea.className = `message-area ${type}`;
+        messageArea.style.display = 'block';
+        setTimeout(() => {
+            messageArea.style.display = 'none';
+        }, 3000);
+    }
+}
+
+// =================================================================
+// التهيئة العامة والمصادقة
+// =================================================================
 initialized.then(() => {
-    // التحقق من تسجيل الدخول
-    auth.onAuthStateChanged((user) => {
-        if (!user) {
-            window.location.href = 'index.html';
-        }
-    });
-
-    // تعديل إضافة موعد جديد
-    window.addEventListener('DOMContentLoaded', () => {
-        const form = document.getElementById('appointmentForm');
-        if (!form) return;
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            try {
-                showLoader(true);
-                const appointmentData = {
-                    userId: auth.currentUser.uid,
-                    title: document.getElementById('title').value,
-                    date: document.getElementById('date').value,
-                    time: document.getElementById('time').value,
-                    location: document.getElementById('location').value,
-                    notes: document.getElementById('notes').value,
-                    smsReminder: document.getElementById('smsReminder').checked,
-                    createdAt: new Date().toISOString()
-                };
-
-                const docRef = await addDoc(collection(db, "appointments"), appointmentData);
-                
-                if (docRef.id) {
-                    showMessage('تم حفظ الموعد بنجاح!', 'success');
-                    form.reset();
-                    await loadAppointments(); // إعادة تحميل المواعيد مباشرة
-                }
-            } catch (error) {
-                console.error("Error adding appointment:", error);
-                showMessage('حدث خطأ أثناء حفظ الموعد', 'error');
-            } finally {
-                showLoader(false);
-            }
-        });
-        
-        // تحميل المواعيد عند فتح الصفحة
-        loadAppointments();
-    });
-
-    // إضافة عرض اسم المستخدم
-    auth.onAuthStateChanged(async (user) => {
-        if (!user) {
-            window.location.href = 'login.html';
-            return;
-        }
-        
-        // عرض اسم المستخدم
-        const userQuery = query(collection(db, "users"), where("uid", "==", user.uid));
-        const userDoc = await getDocs(userQuery);
-        if (!userDoc.empty) {
-            const userData = userDoc.docs[0].data();
-            document.getElementById('userNameValue').textContent = userData.fullName;
-        }
-    });
-
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('ar-SA', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-    }
-
-    // إضافة حالة الشبكة
-    let isOnline = navigator.onLine;
-
-    window.addEventListener('online', () => {
-        isOnline = true;
-        enableNetwork(db).then(() => {
-            console.log('تم استعادة اتصال الشبكة');
-            // مزامنة البيانات مرة أخرى
-            loadAppointments();
-        });
-    });
-
-    window.addEventListener('offline', () => {
-        isOnline = false;
-        disableNetwork(db).then(() => {
-            console.log('تم تعطيل اتصال الشبكة');
-        });
-    });
-
-    // تحسين وظيفة تحميل المواعيد
-    async function loadAppointments(filter = 'all') {
-        const appointmentsList = document.getElementById('appointmentsList');
-        if (!appointmentsList) return;
-
-        try {
-            showLoader(true);
-            
-            const baseQuery = query(
-                collection(db, "appointments"),
-                where("userId", "==", auth.currentUser.uid)
-            );
-
-            // استخدام onSnapshot للتحديثات في الوقت الحقيقي ودعم العمل دون اتصال
-            onSnapshot(baseQuery, 
-                (querySnapshot) => {
-                    if (querySnapshot.empty) {
-                        appointmentsList.innerHTML = '<p class="no-appointments">لا توجد مواعيد</p>';
-                        return;
-                    }
-
-                    let appointments = querySnapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-
-                    // تطبيق الفلاتر في الذاكرة
-                    appointments = filterAppointments(appointments, filter);
-                    
-                    // فرز المواعيد
-                    appointments.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                    renderAppointments(appointments, appointmentsList);
-                },
-                (error) => {
-                    console.error('Error loading appointments:', error);
-                    showMessage('حدث خطأ أثناء تحميل المواعيد', 'error');
-                }
-            );
-
-        } catch (error) {
-            console.error('Error loading appointments:', error);
-            showMessage('حدث خطأ أثناء تحميل المواعيد', 'error');
-        } finally {
-            showLoader(false);
-        }
-    }
-
-    // وظائف التعديل والحذف
-    window.editAppointment = async function(id) {
-        try {
-            const docRef = doc(db, "appointments", id);
-            const docSnap = await getDocs(query(collection(db, "appointments"), where("__name__", "==", id)));
-            if (!docSnap.empty) {
-                const data = docSnap.docs[0].data();
-                document.getElementById('title').value = data.title;
-                document.getElementById('date').value = data.date;
-                document.getElementById('time').value = data.time;
-                document.getElementById('location').value = data.location;
-                document.getElementById('notes').value = data.notes || '';
-                document.getElementById('smsReminder').checked = !!data.smsReminder;
-
-                // عند الحفظ، يتم التحديث بدلاً من الإضافة
-                const form = document.getElementById('appointmentForm');
-                form.onsubmit = async function(e) {
-                    e.preventDefault();
-                    try {
-                        await updateDoc(docRef, {
-                            title: document.getElementById('title').value,
-                            date: document.getElementById('date').value,
-                            time: document.getElementById('time').value,
-                            location: document.getElementById('location').value,
-                            notes: document.getElementById('notes').value,
-                            smsReminder: document.getElementById('smsReminder').checked,
-                        });
-                        alert('تم تحديث الموعد بنجاح!');
-                        form.reset();
-                        form.onsubmit = null; // إعادة الوظيفة الافتراضية
-                        loadAppointments();
-                    } catch (err) {
-                        alert('حدث خطأ أثناء التحديث');
-                    }
-                };
-            }
-        } catch (err) {
-            alert('حدث خطأ أثناء تحميل بيانات الموعد');
-        }
-    };
-
-    window.deleteAppointment = async function(id) {
-        if (!confirm('هل أنت متأكد من حذف هذا الموعد؟')) return;
-        try {
-            await deleteDoc(doc(db, "appointments", id));
-            alert('تم حذف الموعد');
-            loadAppointments();
-        } catch (err) {
-            alert('حدث خطأ أثناء الحذف');
-        }
-    };
-
-    // إضافة مستمعي أحداث للفلاتر
-    document.querySelectorAll('.btn-filter').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelector('.btn-filter.active').classList.remove('active');
-            e.target.classList.add('active');
-            loadAppointments(e.target.dataset.filter);
-        });
-    });
-
-    // تسجيل الخروج
-    window.logout = () => {
-        auth.signOut();
-    };
-
-    // زر تسجيل الخروج الجديد
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            auth.signOut();
-        });
-    }
-
-    // إضافة مراقب للتغييرات في الوقت الفعلي
-    function initializeRealtimeListeners(userId) {
-        // مراقبة المواعيد
-        const appointmentsQuery = query(
-            collection(db, "appointments"),
-            where("userId", "==", userId),
-            orderBy("date", "desc")
-        );
-
-        onSnapshot(appointmentsQuery, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === "added" || change.type === "modified") {
-                    updateUI('appointments', change.doc.data());
-                }
-            });
-        });
-
-        // مراقبة التحاليل
-        const testsQuery = query(
-            collection(db, "tests"),
-            where("userId", "==", userId)
-        );
-
-        onSnapshot(testsQuery, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === "added" || change.type === "modified") {
-                    updateUI('tests', change.doc.data());
-                }
-            });
-        });
-
-        // مراقبة الملاحظات
-        const notesQuery = query(
-            collection(db, "notes"),
-            where("userId", "==", userId)
-        );
-
-        onSnapshot(notesQuery, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === "added" || change.type === "modified") {
-                    updateUI('notes', change.doc.data());
-                }
-            });
-        });
-    }
-
-    // تعديل وظيفة تحديث واجهة المستخدم
-    function updateUI(type, data) {
-        try {
-            switch(type) {
-                case 'appointments':
-                    if (document.getElementById('appointmentsList')) {
-                        loadAppointments();
-                    }
-                    break;
-                case 'tests':
-                    if (document.getElementById('testsForm')) {
-                        loadTestsForDate(data.date);
-                    }
-                    break;
-                case 'notes':
-                    if (document.getElementById('notesList')) {
-                        const notesManager = window.notesManager;
-                        if (notesManager) notesManager.loadNotes();
-                    }
-                    break;
-            }
-        } catch (error) {
-            console.error('Error updating UI:', error);
-        }
-    }
-
-    // تهيئة المراقبة عند تسجيل الدخول
-    auth.onAuthStateChanged((user) => {
+    auth.onAuthStateChanged(user => {
         if (user) {
-            initializeRealtimeListeners(user.uid);
+            // عرض اسم المستخدم في كل الصفحات
+            displayUserName(user.uid);
+            // تهيئة وظائف الصفحة الحالية
+            initializePageFunctions(); 
+        } else {
+            // إذا لم يكن المستخدم مسجلاً، اذهب لصفحة المصادقة
+            window.location.href = 'auth.html';
         }
     });
 }).catch(error => {
@@ -313,30 +56,156 @@ initialized.then(() => {
     alert("فشل في الاتصال بالخدمة. يرجى تحديث الصفحة.");
 });
 
-// إضافة وظائف مساعدة
-function showLoader(show) {
-    const loader = document.querySelector('.loader');
-    if (loader) {
-        loader.style.display = show ? 'block' : 'none';
+async function displayUserName(userId) {
+    const userNameElements = document.querySelectorAll('#userNameValue');
+    if (userNameElements.length === 0) return;
+
+    try {
+        const userQuery = query(collection(db, "users"), where("uid", "==", userId));
+        const userDocSnapshot = await getDocs(userQuery);
+
+        if (!userDocSnapshot.empty) {
+            const userData = userDocSnapshot.docs[0].data();
+            userNameElements.forEach(el => el.textContent = userData.fullName);
+        }
+    } catch (error) {
+        console.error("Error fetching user name:", error);
     }
 }
 
-function showMessage(message, type) {
-    const messageArea = document.querySelector('.message-area');
-    if (messageArea) {
-        messageArea.textContent = message;
-        messageArea.className = `message-area ${type}`;
-        messageArea.style.display = 'block';
-        setTimeout(() => {
-            messageArea.style.display = 'none';
-        }, 3000);
+// تسجيل الخروج
+window.logout = () => {
+    auth.signOut().catch(error => console.error('Sign out error', error));
+};
+
+// ربط زر الخروج في كل الصفحات
+document.querySelectorAll('#logoutBtn').forEach(btn => btn.addEventListener('click', window.logout));
+
+
+// =================================================================
+// تهيئة وظائف الصفحات المختلفة
+// =================================================================
+function initializePageFunctions() {
+    // --- منطق صفحة المواعيد (appointments.html) ---
+    if (document.getElementById('appointmentForm')) {
+        const appointmentForm = document.getElementById('appointmentForm');
+        const appointmentsList = document.getElementById('appointmentsList');
+        const filterButtons = document.querySelectorAll('.btn-filter');
+        let currentFilter = 'all';
+
+        // --- دالة عرض المواعيد ---
+        const renderAppointments = (appointments) => {
+            if (!appointmentsList) return;
+            if (appointments.length === 0) {
+                appointmentsList.innerHTML = `<p class="no-appointments">لا توجد مواعيد لعرضها حسب الفلتر المحدد.</p>`;
+                return;
+            }
+            // **هذا هو الجزء الذي كان ناقصاً**
+            appointmentsList.innerHTML = appointments.map(apt => `
+                <div class="appointment-card" id="apt-${apt.id}">
+                    <div class="appointment-header">
+                        <h3>${apt.title}</h3>
+                        <div class="appointment-actions">
+                            <button onclick="editAppointment('${apt.id}')" class="btn-icon"><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteAppointment('${apt.id}')" class="btn-icon btn-danger"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="appointment-details">
+                        <p><i class="fas fa-calendar"></i> ${new Date(apt.date).toLocaleDateString('ar-SA')}</p>
+                        <p><i class="fas fa-clock"></i> ${apt.time}</p>
+                        <p><i class="fas fa-map-marker-alt"></i> ${apt.location}</p>
+                        ${apt.notes ? `<p><i class="fas fa-sticky-note"></i> ${apt.notes}</p>` : ''}
+                        ${apt.smsReminder ? '<p class="reminder-active"><i class="fas fa-bell"></i> تفعيل التذكير</p>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        // --- دالة جلب وتصفية المواعيد ---
+        const loadAndRenderAppointments = () => {
+            if (!auth.currentUser) return;
+            const q = query(collection(db, "appointments"), where("userId", "==", auth.currentUser.uid), orderBy("date", "asc"));
+            
+            onSnapshot(q, (snapshot) => {
+                const allAppointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const filtered = filterAppointments(allAppointments, currentFilter);
+                renderAppointments(filtered);
+            }, (error) => {
+                console.error("Error fetching appointments: ", error);
+                showMessage("حدث خطأ في جلب المواعيد.", "error", appointmentForm.parentElement);
+            });
+        };
+
+        // --- منطق الحفظ (هذا الجزء كان ناقصاً) ---
+        appointmentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const appointmentData = {
+                userId: auth.currentUser.uid,
+                title: document.getElementById('title').value,
+                date: document.getElementById('date').value,
+                time: document.getElementById('time').value,
+                location: document.getElementById('location').value,
+                notes: document.getElementById('notes').value,
+                smsReminder: document.getElementById('smsReminder').checked,
+                createdAt: new Date().toISOString()
+            };
+            try {
+                await addDoc(collection(db, "appointments"), appointmentData);
+                showMessage("تم حفظ الموعد بنجاح!", "success", appointmentForm.parentElement);
+                appointmentForm.reset();
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                showMessage("حدث خطأ أثناء حفظ الموعد.", "error", appointmentForm.parentElement);
+            }
+        });
+
+        // --- ربط أزرار الفلترة ---
+        filterButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelector('.btn-filter.active').classList.remove('active');
+                button.classList.add('active');
+                currentFilter = button.dataset.filter;
+                loadAndRenderAppointments(); // إعادة العرض عند تغيير الفلتر
+            });
+        });
+
+        // --- تشغيل جلب البيانات عند تحميل الصفحة ---
+        loadAndRenderAppointments();
     }
+    // يمكنك إضافة منطق الصفحات الأخرى هنا بنفس الطريقة
+    // if (document.getElementById('testsForm')) { ... }
 }
 
+
+// =================================================================
+// وظائف عامة يمكن استدعاؤها من HTML
+// =================================================================
+
+window.deleteAppointment = async (id) => {
+    if (confirm('هل أنت متأكد من حذف هذا الموعد؟')) {
+        try {
+            await deleteDoc(doc(db, "appointments", id));
+            // سيقوم onSnapshot بتحديث الواجهة تلقائياً
+        } catch (error) {
+            console.error("Error deleting appointment: ", error);
+            alert('حدث خطأ أثناء الحذف.');
+        }
+    }
+};
+
+window.editAppointment = (id) => {
+    alert(`ميزة التعديل للموعد رقم ${id} لم تكتمل بعد.`);
+    // هنا يمكنك إضافة منطق فتح نافذة منبثقة أو تعديل مباشر
+};
+
+
+// =================================================================
+// دالة الفلترة
+// =================================================================
 function filterAppointments(appointments, filter) {
     const today = new Date();
-    today.setHours(0,0,0,0);
-    
+    today.setHours(0, 0, 0, 0);
+
     switch(filter) {
         case 'today':
             return appointments.filter(apt => new Date(apt.date).toDateString() === today.toDateString());
@@ -345,65 +214,16 @@ function filterAppointments(appointments, filter) {
             nextWeek.setDate(today.getDate() + 7);
             return appointments.filter(apt => {
                 const aptDate = new Date(apt.date);
-                return aptDate >= today && aptDate <= nextWeek;
+                return aptDate >= today && aptDate < nextWeek;
             });
         case 'month':
             const nextMonth = new Date(today);
             nextMonth.setMonth(today.getMonth() + 1);
             return appointments.filter(apt => {
                 const aptDate = new Date(apt.date);
-                return aptDate >= today && aptDate <= nextMonth;
+                return aptDate >= today && aptDate < nextMonth;
             });
-        default:
-            return appointments;
-    }
-}
-    console.error("فشل في تهيئة Firebase:", error);
-    alert("فشل في الاتصال بالخدمة. يرجى تحديث الصفحة.");
-;
-
-// إضافة وظائف مساعدة
-function showLoader(show) {
-    const loader = document.querySelector('.loader');
-    if (loader) {
-        loader.style.display = show ? 'block' : 'none';
-    }
-}
-
-function showMessage(message, type) {
-    const messageArea = document.querySelector('.message-area');
-    if (messageArea) {
-        messageArea.textContent = message;
-        messageArea.className = `message-area ${type}`;
-        messageArea.style.display = 'block';
-        setTimeout(() => {
-            messageArea.style.display = 'none';
-        }, 3000);
-    }
-}
-
-function filterAppointments(appointments, filter) {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    
-    switch(filter) {
-        case 'today':
-            return appointments.filter(apt => new Date(apt.date).toDateString() === today.toDateString());
-        case 'week':
-            const nextWeek = new Date(today);
-            nextWeek.setDate(today.getDate() + 7);
-            return appointments.filter(apt => {
-                const aptDate = new Date(apt.date);
-                return aptDate >= today && aptDate <= nextWeek;
-            });
-        case 'month':
-            const nextMonth = new Date(today);
-            nextMonth.setMonth(today.getMonth() + 1);
-            return appointments.filter(apt => {
-                const aptDate = new Date(apt.date);
-                return aptDate >= today && aptDate <= nextMonth;
-            });
-        default:
+        default: // 'all'
             return appointments;
     }
 }
