@@ -151,7 +151,83 @@ class DashboardManager {
         document.getElementById('notesCount').textContent = count;
     }
 }
+// js/dashboard.js
+// ... (الكود الحالي) ...
 
+class DashboardManager {
+    constructor() {
+        // ...
+        this.testsChart = null; // للاحتفاظ بالرسم البياني وتحديثه
+        this.init();
+    }
+    
+    // ...
+    
+    async loadTestsChart() {
+        const userId = auth.currentUser.uid;
+        try {
+            const today = new Date();
+            const lastMonth = new Date();
+            lastMonth.setDate(today.getDate() - 30);
+
+            const q = query(
+                collection(db, "tests"),
+                where("userId", "==", userId),
+                where("timestamp", ">=", lastMonth),
+                orderBy("timestamp", "asc")
+            );
+
+            const querySnapshot = await getDocs(q);
+            const testsData = querySnapshot.docs.map(doc => doc.data());
+
+            this.renderTestsChart(testsData);
+        } catch (error) {
+            console.error("Error loading tests for chart:", error);
+        }
+    }
+
+    renderTestsChart(data) {
+        const ctx = document.getElementById('testsChart').getContext('2d');
+        if (!data || data.length === 0) {
+            ctx.font = "16px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("لا توجد بيانات كافية لعرض الرسم البياني", 150, 100);
+            return;
+        }
+
+        const labels = data.map(d => new Date(d.date).toLocaleDateString('ar-EG'));
+        const averages = data.map(d => d.average);
+        
+        if (this.testsChart) {
+            this.testsChart.destroy(); // تدمير الرسم البياني القديم قبل رسم الجديد
+        }
+
+        this.testsChart = new Chart(ctx, {
+            type: 'line', // نوع الرسم البياني
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'متوسط القراءات اليومي',
+                    data: averages,
+                    borderColor: 'rgba(42, 157, 143, 1)',
+                    backgroundColor: 'rgba(42, 157, 143, 0.2)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+    }
+
+    // ... (باقي الكود)
+}
 // تهيئة لوحة التحكم
 document.addEventListener('DOMContentLoaded', () => {
     new DashboardManager();

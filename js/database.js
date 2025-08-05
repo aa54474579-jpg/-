@@ -1,15 +1,17 @@
 import { app, auth, db, initialized } from '../lib/firebase.js';
 import { 
     collection, 
-    addDoc, 
-    query, 
-    where, 
+    addDoc,
+    query,
+    where,
     getDocs,
     doc,
     updateDoc,
     deleteDoc,
     onSnapshot,
-    orderBy
+    orderBy,
+    enableNetwork,
+    disableNetwork
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 // الانتظار حتى تكتمل عملية تهيئة Firebase
@@ -87,6 +89,25 @@ initialized.then(() => {
         });
     }
 
+    // إضافة حالة الشبكة
+    let isOnline = navigator.onLine;
+
+    window.addEventListener('online', () => {
+        isOnline = true;
+        enableNetwork(db).then(() => {
+            console.log('تم استعادة اتصال الشبكة');
+            // مزامنة البيانات مرة أخرى
+            loadAppointments();
+        });
+    });
+
+    window.addEventListener('offline', () => {
+        isOnline = false;
+        disableNetwork(db).then(() => {
+            console.log('تم تعطيل اتصال الشبكة');
+        });
+    });
+
     // تحسين وظيفة تحميل المواعيد
     async function loadAppointments(filter = 'all') {
         const appointmentsList = document.getElementById('appointmentsList');
@@ -95,114 +116,44 @@ initialized.then(() => {
         try {
             showLoader(true);
             
-            // استعلام بسيط بدون ترتيب مركب
-            let baseQuery = collection(db, "appointments");
-            let constraints = [where("userId", "==", auth.currentUser.uid)];
-            
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            
-            // إضافة فلتر التاريخ حسب الاختيار
-            switch(filter) {
-                case 'today':
-                    constraints.push(where("date", "==", today.toISOString().split('T')[0]));
-                    break;
-                case 'week':
-                    const nextWeek = new Date(today);
-                    nextWeek.setDate(today.getDate() + 7);
-                    constraints.push(
-                        where("date", ">=", today.toISOString().split('T')[0]),
-                        where("date", "<=", nextWeek.toISOString().split('T')[0])
-                    );
-                    break;
-                case 'month':
-                    const nextMonth = new Date(today);
-                    nextMonth.setMonth(today.getMonth() + 1);
-                    constraints.push(
-                        where("date", ">=", today.toISOString().split('T')[0]),
-                        where("date", "<=", nextMonth.toISOString().split('T')[0])
-                    );
-                    break;
-            }
+            const baseQuery = query(
+                collection(db, "appointments"),
+                where("userId", "==", auth.currentUser.uid)
+            );
 
-            // تنفيذ الاستعلام
-            const q = query(baseQuery, ...constraints);
-            const querySnapshot = await getDocs(q);
-            
-            if (querySnapshot.empty) {
-                appointmentsList.innerHTML = '<p class="no-appointments">لا توجد مواعيد</p>';
-                return;
-            }
+            // استخدام onSnapshot للتحديثات في الوقت الحقيقي ودعم العمل دون اتصال
+            onSnapshot(baseQuery, 
+                (querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        appointmentsList.innerHTML = '<p class="no-appointments">لا توجد مواعيد</p>';
+                        return;
+                    }
 
-            // ترتيب النتائج بعد استرجاعها
-            const appointments = querySnapshot.docs
-                .map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }))
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
+                    let appointments = querySnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
 
-            renderAppointments(appointments, appointmentsList);
+                    // تطبيق الفلاتر في الذاكرة
+                    appointments = filterAppointments(appointments, filter);
+                    
+                    // فرز المواعيد
+                    appointments.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                    renderAppointments(appointments, appointmentsList);
+                },
+                (error) => {
+                    console.error('Error loading appointments:', error);
+                    showMessage('حدث خطأ أثناء تحميل المواعيد', 'error');
+                }
+            );
+
         } catch (error) {
             console.error('Error loading appointments:', error);
             showMessage('حدث خطأ أثناء تحميل المواعيد', 'error');
         } finally {
             showLoader(false);
         }
-    }
-
-    function buildQuery(filter) {
-        let q = query(
-            collection(db, "appointments"),
-            where("userId", "==", auth.currentUser.uid)
-        );
-        
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        
-        switch(filter) {
-            case 'today':
-                q = query(q, where("date", "==", today.toISOString().split('T')[0]));
-                break;
-            case 'week':
-                const nextWeek = new Date(today);
-                nextWeek.setDate(today.getDate() + 7);
-                q = query(q, 
-                    where("date", ">=", today.toISOString().split('T')[0]),
-                    where("date", "<=", nextWeek.toISOString().split('T')[0])
-                );
-                break;
-        }
-        
-        return q;
-    }
-
-    function renderAppointments(appointments, container) {
-        container.innerHTML = '';
-        appointments.forEach(appointment => {
-            container.innerHTML += `
-                <div class="appointment-card">
-                    <div class="appointment-header">
-                        <h3>${appointment.title}</h3>
-                        <div class="appointment-actions">
-                            <button onclick="editAppointment('${appointment.id}')" class="btn-icon">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button onclick="deleteAppointment('${appointment.id}')" class="btn-icon btn-danger">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="appointment-details">
-                        <p><i class="fas fa-calendar"></i> ${formatDate(appointment.date)}</p>
-                        <p><i class="fas fa-clock"></i> ${appointment.time}</p>
-                        <p><i class="fas fa-map-marker-alt"></i> ${appointment.location}</p>
-                        ${appointment.notes ? `<p><i class="fas fa-sticky-note"></i> ${appointment.notes}</p>` : ''}
-                        ${appointment.smsReminder ? '<p class="reminder-active"><i class="fas fa-bell"></i> تفعيل التذكير</p>' : ''}
-                    </div>
-                </div>
-            `;
-        });
     }
 
     // وظائف التعديل والحذف
@@ -361,6 +312,55 @@ initialized.then(() => {
     console.error("فشل في تهيئة Firebase:", error);
     alert("فشل في الاتصال بالخدمة. يرجى تحديث الصفحة.");
 });
+
+// إضافة وظائف مساعدة
+function showLoader(show) {
+    const loader = document.querySelector('.loader');
+    if (loader) {
+        loader.style.display = show ? 'block' : 'none';
+    }
+}
+
+function showMessage(message, type) {
+    const messageArea = document.querySelector('.message-area');
+    if (messageArea) {
+        messageArea.textContent = message;
+        messageArea.className = `message-area ${type}`;
+        messageArea.style.display = 'block';
+        setTimeout(() => {
+            messageArea.style.display = 'none';
+        }, 3000);
+    }
+}
+
+function filterAppointments(appointments, filter) {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    switch(filter) {
+        case 'today':
+            return appointments.filter(apt => new Date(apt.date).toDateString() === today.toDateString());
+        case 'week':
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 7);
+            return appointments.filter(apt => {
+                const aptDate = new Date(apt.date);
+                return aptDate >= today && aptDate <= nextWeek;
+            });
+        case 'month':
+            const nextMonth = new Date(today);
+            nextMonth.setMonth(today.getMonth() + 1);
+            return appointments.filter(apt => {
+                const aptDate = new Date(apt.date);
+                return aptDate >= today && aptDate <= nextMonth;
+            });
+        default:
+            return appointments;
+    }
+}
+    console.error("فشل في تهيئة Firebase:", error);
+    alert("فشل في الاتصال بالخدمة. يرجى تحديث الصفحة.");
+;
 
 // إضافة وظائف مساعدة
 function showLoader(show) {
