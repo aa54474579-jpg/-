@@ -24,30 +24,15 @@
             </div>
         </div>
         <div class="nav-menu">
-            <a href="appointments.html" class="nav-link active">
-                <i class="fas fa-calendar-check"></i>
-                المواعيد
-            </a>
-            <a href="tests.html" class="nav-link">
-                <i class="fas fa-vial"></i>
-                التحاليل
-            </a>
-            <a href="export.html" class="nav-link">
-                <i class="fas fa-file-export"></i>
-                التصدير
-            </a>
-           <a href="notes.html" class="nav-link">
-                <i class="fas fa-sticky-note"></i>
-                الملاحظات
-            </a>
-          
+            <a href="appointments.html" class="nav-link active"><i class="fas fa-calendar-check"></i> المواعيد</a>
+            <a href="tests.html" class="nav-link"><i class="fas fa-vial"></i> التحاليل</a>
+            <a href="export.html" class="nav-link"><i class="fas fa-file-export"></i> التصدير</a>
+            <a href="notes.html" class="nav-link"><i class="fas fa-sticky-note"></i> الملاحظات</a>
         </div>
-        
     </nav>
 
     <div class="container">
         <div class="appointments-grid">
-            <!-- قسم إضافة موعد -->
             <div class="add-appointment card">
                 <div class="card-header">
                     <h2><i class="fas fa-plus-circle"></i> إضافة موعد جديد</h2>
@@ -93,13 +78,12 @@
                         <span class="switch-label">تفعيل التذكير عبر الرسائل</span>
                     </div>
                     <button type="submit" class="btn-submit">
-                        <i class="fas fa-save"></i>
-                        حفظ الموعد
+                        <i class="fas fa-save"></i> حفظ الموعد
                     </button>
+                    <div class="message-area" style="display: none;"></div>
                 </form>
             </div>
 
-            <!-- قسم عرض المواعيد -->
             <div class="appointments-list">
                 <div class="appointments-filters">
                     <h2><i class="fas fa-calendar-alt"></i> المواعيد القادمة</h2>
@@ -111,8 +95,7 @@
                     </div>
                 </div>
                 <div id="appointmentsList" class="appointments-cards">
-                    <!-- سيتم ملؤها عبر JavaScript -->
-                </div>
+                    </div>
             </div>
         </div>
     </div>
