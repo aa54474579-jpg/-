@@ -5,8 +5,9 @@ import {
     collection, addDoc, query, where, doc, deleteDoc, onSnapshot, orderBy, getDocs
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// --- دوال مساعدة ---
+// --- دالة مساعدة لإظهار الرسائل ---
 function showMessage(message, type, container) {
+    // تبحث عن منطقة الرسائل داخل العنصر المحدد (الفورم مثلا)
     const messageArea = container.querySelector('.message-area');
     if (messageArea) {
         messageArea.textContent = message;
@@ -18,21 +19,24 @@ function showMessage(message, type, container) {
     }
 }
 
-// --- التهيئة الرئيسية ---
+// --- التهيئة الرئيسية للتطبيق ---
 initialized.then(() => {
     auth.onAuthStateChanged(user => {
         if (user) {
+            // إذا كان المستخدم مسجل دخوله
             displayUserName(user.uid);
-            // تحقق إذا كنا في صفحة المواعيد وقم بتشغيل وظائفها
+            // تحقق من الصفحة الحالية وشغّل وظائفها
             if (document.getElementById('appointmentForm')) {
                 initializeAppointmentsPage(user);
             }
         } else {
+            // إذا لم يكن مسجلاً، اذهب لصفحة الدخول
             window.location.href = 'auth.html';
         }
     });
 }).catch(error => console.error("Firebase initialization failed:", error));
 
+// --- عرض اسم المستخدم في شريط التنقل ---
 async function displayUserName(userId) {
     const userNameElements = document.querySelectorAll('#userNameValue');
     if (userNameElements.length === 0) return;
@@ -54,38 +58,42 @@ function initializeAppointmentsPage(user) {
     const appointmentsList = document.getElementById('appointmentsList');
     const filterButtons = document.querySelectorAll('.btn-filter');
     let currentFilter = 'all';
+    let allAppointments = []; // متغير لتخزين جميع المواعيد
 
-    // 1. الاستماع للتغييرات في قاعدة البيانات
+    // 1. الاستماع للتغييرات في قاعدة البيانات (الوظيفة الأساسية)
     const q = query(collection(db, "appointments"), where("userId", "==", user.uid), orderBy("date", "asc"));
     onSnapshot(q, (snapshot) => {
-        const allAppointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderAppointments(allAppointments, currentFilter); // عرض البيانات بعد كل تغيير
+        console.log("تم جلب البيانات من Firestore!"); // للتأكد من أن الاتصال يعمل
+        allAppointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderFilteredAppointments(); // عرض البيانات بعد كل تحديث
+    }, error => {
+        console.error("Firestore snapshot error:", error);
     });
 
-    // 2. دالة العرض
-    function renderAppointments(appointments, filter) {
-        const filteredAppointments = filterAppointments(appointments, filter);
-        if (filteredAppointments.length === 0) {
+    // 2. دالة العرض الرئيسية
+    function renderFilteredAppointments() {
+        const filtered = filterAppointments(allAppointments, currentFilter);
+        if (filtered.length === 0) {
             appointmentsList.innerHTML = `<p class="no-appointments">لا توجد مواعيد لعرضها.</p>`;
-            return;
-        }
-        appointmentsList.innerHTML = filteredAppointments.map(apt => `
-            <div class="appointment-card" id="apt-${apt.id}">
-                <div class="appointment-header">
-                    <h3>${apt.title}</h3>
-                    <div class="appointment-actions">
-                        <button onclick="editAppointment('${apt.id}')" class="btn-icon"><i class="fas fa-edit"></i></button>
-                        <button onclick="deleteAppointment('${apt.id}')" class="btn-icon btn-danger"><i class="fas fa-trash"></i></button>
+        } else {
+            appointmentsList.innerHTML = filtered.map(apt => `
+                <div class="appointment-card" id="apt-${apt.id}">
+                    <div class="appointment-header">
+                        <h3>${apt.title}</h3>
+                        <div class="appointment-actions">
+                            <button onclick="editAppointment('${apt.id}')" class="btn-icon"><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteAppointment('${apt.id}')" class="btn-icon btn-danger"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="appointment-details">
+                        <p><i class="fas fa-calendar"></i> ${new Date(apt.date).toLocaleDateString('ar-SA')}</p>
+                        <p><i class="fas fa-clock"></i> ${apt.time}</p>
+                        <p><i class="fas fa-map-marker-alt"></i> ${apt.location}</p>
+                        ${apt.notes ? `<p><i class="fas fa-sticky-note"></i> ${apt.notes}</p>` : ''}
                     </div>
                 </div>
-                <div class="appointment-details">
-                    <p><i class="fas fa-calendar"></i> ${new Date(apt.date).toLocaleDateString('ar-SA')}</p>
-                    <p><i class="fas fa-clock"></i> ${apt.time}</p>
-                    <p><i class="fas fa-map-marker-alt"></i> ${apt.location}</p>
-                    ${apt.notes ? `<p><i class="fas fa-sticky-note"></i> ${apt.notes}</p>` : ''}
-                </div>
-            </div>
-        `).join('');
+            `).join('');
+        }
     }
 
     // 3. منطق حفظ موعد جديد
@@ -98,7 +106,6 @@ function initializeAppointmentsPage(user) {
             time: document.getElementById('time').value,
             location: document.getElementById('location').value,
             notes: document.getElementById('notes').value,
-            smsReminder: document.getElementById('smsReminder').checked
         };
         try {
             await addDoc(collection(db, "appointments"), appointmentData);
@@ -115,25 +122,22 @@ function initializeAppointmentsPage(user) {
             currentFilter = button.dataset.filter;
             document.querySelector('.btn-filter.active').classList.remove('active');
             button.classList.add('active');
-            // إعادة العرض بناءً على الفلتر الجديد (لا حاجة لجلب البيانات مرة أخرى)
-            const q = query(collection(db, "appointments"), where("userId", "==", user.uid), orderBy("date", "asc"));
-            getDocs(q).then(snapshot => {
-                 const allAppointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                 renderAppointments(allAppointments, currentFilter);
-            });
+            renderFilteredAppointments(); // فقط أعد العرض، لا تجلب البيانات مرة أخرى
         });
     });
 }
 
-// --- دوال عامة للحذف والتعديل ---
+// --- دوال عامة للحذف والتعديل (توضع خارج دالة التهيئة) ---
 window.deleteAppointment = async (id) => {
     if (confirm('هل أنت متأكد من حذف هذا الموعد؟')) {
         await deleteDoc(doc(db, "appointments", id));
     }
 };
-window.editAppointment = (id) => { alert(`ميزة التعديل للموعد ${id} قيد التطوير.`); };
+window.editAppointment = (id) => { 
+    alert(`ميزة التعديل للموعد ${id} قيد التطوير.`);
+};
 
-// --- دالة الفلترة ---
+// --- دالة الفلترة (توضع خارج دالة التهيئة) ---
 function filterAppointments(appointments, filter) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -153,5 +157,5 @@ function filterAppointments(appointments, filter) {
     }
 }
 
-// تسجيل الخروج
+// --- تسجيل الخروج ---
 document.querySelectorAll('#logoutBtn').forEach(btn => btn.addEventListener('click', () => auth.signOut()));
