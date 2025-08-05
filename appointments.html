@@ -121,6 +121,45 @@
         </div>
     </div>
 
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>تعديل الموعد</h2>
+                <span class="close-btn">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editAppointmentForm">
+                    <input type="hidden" id="editAppointmentId">
+                    <div class="form-group">
+                        <label for="editTitle">عنوان الموعد</label>
+                        <input type="text" id="editTitle" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editDate">التاريخ</label>
+                            <input type="date" id="editDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editTime">الوقت</label>
+                            <input type="time" id="editTime" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editLocation">المكان</label>
+                        <input type="text" id="editLocation" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editNotes">ملاحظات</label>
+                        <textarea id="editNotes" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn-submit">
+                        <i class="fas fa-save"></i> تحديث الموعد
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="js/database.js"></script>
 </body>
 </html>
